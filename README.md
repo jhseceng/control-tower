@@ -1,6 +1,6 @@
-# control-tower
+# Falcon Discover - Control Tower Setup
 
-Instructions
+## Instructions
 
 1) Place the contents of the 'cloudformation' and 'lambda' files into an S3 bucket with PUBLIC read only permissions.
 
