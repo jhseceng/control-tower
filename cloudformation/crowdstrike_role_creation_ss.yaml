@@ -1,0 +1,182 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: For public release - This template sets up a cross account IAM role in order to enable CrowdStrike Falcon Discover For
+  AWS functionality.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Cross Account IAM Role.
+        Parameters:
+          - RoleName
+          - ExternalID
+          - CSAccountNumber
+          - CSAssumingRoleName
+    ParameterLabels:
+      RoleName:
+        default: IAM Role Name
+      ExternalID:
+        default: External ID
+      CSAccountNumber:
+        default: AWS Account ID to Grant Permission. Do not modify
+      CSAssumingRoleName:
+        default: Assuming IAM Role Name.  Do not modify
+Outputs:
+  RoleARN:
+    Description: The ARN of the role that can be assumed by the other account.
+    Value: !GetAtt 'iamRole.Arn'
+Parameters:
+  RoleName:
+    Description: The name of the cross account IAM role to be created.
+    MinLength: '1'
+    Type: String
+
+  ExternalID:
+    Description: The External ID that will be required to assume the role.
+    MinLength: '1'
+    Type: String
+
+  CSAccountNumber:
+    AllowedPattern: '[0-9]+'
+    Description: The 12 digit AWS account number to grant access to.
+    MaxLength: '12'
+    MinLength: '12'
+    Type: String
+
+  CSAssumingRoleName:
+    Description: Name of the IAM role used within CrowdStrike to assume access to
+      your account.
+    Type: String
+    Default: "CS-Prod-HG-CsCloudconnectaws"
+  FalconClientId:
+    Description: Falcon OAuth2 Client ID.
+    Type: String
+
+  FalconSecret:
+    Description: Falcon Oath2 API secret.
+    Type: String
+
+  LogArchiveAccount:
+    Type: String
+    Description: AccountId of Log Archive Bucket
+
+  LogArchiveBucketRegion:
+    Type: String
+    Description: Log archive bucket region
+
+  LogArchiveBucketName:
+    Type: String
+    Description: Log Archive Bucket Name
+
+  LocalAccount:
+    Type: String
+    Description: The local account number
+
+  LambdaBucketName:
+    Type: String
+
+
+
+
+
+Resources:
+
+  iamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref 'RoleName'
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref 'ExternalID'
+            Effect: Allow
+            Principal:
+              AWS: !Join
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'CSAccountNumber'
+                  - :role/
+                  - !Ref 'CSAssumingRoleName'
+            Sid: ''
+        Version: '2012-10-17'
+      Path: /
+  iamPolicyDescribeAccess:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DescribeAPICalls
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeImages
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVolumes
+              - ec2:DescribeVpcs
+              - ec2:DescribeRegions
+              - ec2:DescribeSubnets
+              - ec2:DescribeNetworkAcls
+              - ec2:DescribeSecurityGroups
+              - iam:ListAccountAliases
+            Effect: Allow
+            Resource: '*'
+            Sid: ''
+        Version: '2012-10-17'
+      Roles:
+        - !Ref 'iamRole'
+    DependsOn: iamRole
+
+
+  manageInstanceFalconAPI:
+    DependsOn:
+      - CrowdstrikeRegisterAcctLambdaRole
+    Type: AWS::Lambda::Function
+
+    Properties:
+      Environment:
+        Variables:
+          central_s3_bucket_account: !Ref LogArchiveAccount
+          cloudtrail_bucket_region: !Ref LogArchiveBucketRegion
+          iam_role_arn: !GetAtt "iamRole.Arn"
+          CSAccountNumber: !Ref CSAccountNumber
+          CSAssumingRoleName: !Ref CSAssumingRoleName
+          FalconClientId: !Ref FalconClientId
+          FalconSecret: !Ref FalconSecret
+          LocalAccount: !Ref LocalAccount
+
+      Code:
+        S3Bucket: !Ref LambdaBucketName
+        S3Key: register_crwd_account.zip
+      Handler: register_crwd_account.lambda_handler
+      MemorySize: 128
+      Role: CrowdstrikeRegisterAcctLambdaRole
+      Runtime: python3.7
+      Timeout: 60
+
+  TriggerLambda:
+    Type: 'Custom::TriggerLambda'
+    DependsOn:
+      - CrowdstrikeRegisterAcctLambdaRole
+      - manageInstanceFalconAPI
+    Properties:
+      ServiceToken: !GetAtt
+        - manageInstanceFalconAPI
+        - Arn
+
+  CrowdstrikeRegisterAcctLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CrowdstrikeRegisterAcctLambdaRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+
