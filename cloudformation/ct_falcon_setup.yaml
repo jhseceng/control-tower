@@ -5,14 +5,17 @@ Parameters:
     Description: Your Falcon Oauth2 API Key.
     NoEcho: 'true'
     Type: String
+    Default: "16b7412b5f4f4ec1a9dc6cbc54800787"
   FalconSecret:
     Description: Your Falcon Oauth2 API Secret.
     NoEcho: 'true'
     Type: String
+    Default: "cfLzq7J358G9bp6oZHTgih1BtIQFln04Rjv2DPOs"
   ExternalId:
     Description: ExternalID Used for authenticating assume role requests.
     NoEcho: 'true'
     Type: String
+    Default: "PZi2wi5MB5pFAEy"
   CSAccountNumber:
     Default: '292230061137'
     Description: Crowdstrike Account ID.
@@ -20,6 +23,7 @@ Parameters:
   LambdaBucketName:
     Type: String
     Description: Name of the S3 bucket that contains lambda functions
+    Default: "ctstagingireland"
   RoleName:
     Description: IAM Role Name
     Type: String
@@ -31,12 +35,15 @@ Parameters:
   LogArchiveAccount:
     Type: String
     Description: AccountId of Log Archive Bucket
+    Default: "004881111746"
   LogArchiveBucketName:
     Type: String
     Description: Log Archive Bucket Name
+    Default: "aws-controltower-logs-004881111746-eu-west-1"
   LogArchiveBucketRegion:
     Type: String
     Description: Log Archive Bucket Region
+    Default: "eu-west-1"
 
 
 Metadata:
@@ -68,10 +75,62 @@ Resources:
           - '","FalconSecret": "'
           - Ref: FalconSecret
           - '"}'
-  launchLabLambdaRoleExe:
+  FalconDiscoverCredentialsRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: launchLabLambdaRoleExe
+      RoleName: FalconDiscoverCredentialsRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+            Condition: {}
+      Path: /
+      Policies:
+        - PolicyName: Assume_Role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Resource: '*'
+        - PolicyName: Get_Values
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor1
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref CrowdstrikeCredentials
+        - PolicyName: List_secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor2
+              Effect: Allow
+              Action:
+                - secretsmanager:ListSecrets
+              Resource: '*'
+        - PolicyName: Pass_Role
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Sid: VisualEditor3
+              Effect: Allow
+              Action:
+                - iam:PassRole
+              Resource: !Join [':', ['arn:aws:iam:', !Ref "AWS::AccountId", 'role/service-role/AWSControlTowerStackSetRole']]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSOrganizationsReadOnlyAccess
+
+  launchLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: launchLambdaRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -138,7 +197,7 @@ Resources:
 
   LambdaToLaunchStackSet:
     DependsOn:
-      - launchLabLambdaRoleExe
+      - "launchLambdaRole"
       - CrowdstrikeCredentials
     Type: 'AWS::Lambda::Function'
     DeletionPolicy: Delete
@@ -148,6 +207,7 @@ Resources:
         S3Key: crwd_manage_stacks_lambda.zip
       Environment:
         Variables:
+          FalconDiscoverSecretsRole: !GetAtt "FalconDiscoverCredentialsRole.Arn"
           LogArchiveAccount: !Ref LogArchiveAccount
           LogArchiveBucketName: !Ref LogArchiveBucketName
           LogArchiveBucketRegion: !Ref LogArchiveBucketRegion
@@ -158,13 +218,13 @@ Resources:
       Handler: crwd_manage_stacks_lambda.lambda_handler
       Runtime: python3.7
       MemorySize: 128
-      Role: !GetAtt launchLabLambdaRoleExe.Arn
+      Role: !GetAtt "launchLambdaRole.Arn"
       Timeout: 180
   TriggerLambda:
     Type: 'Custom::TriggerLambda'
     DependsOn:
       - LambdaToLaunchStackSet
-      - launchLabLambdaRoleExe
+      - "launchLambdaRole"
       - permissionForEventsToInvokeLambda
     Properties:
       ServiceToken: !GetAtt
