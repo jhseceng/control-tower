@@ -11,48 +11,55 @@ Metadata:
           - ExternalID
           - CSAccountNumber
           - CSAssumingRoleName
+      - Label:
+          default: Crowdstrike Falcom API keys.
+          Parameters:
+            - FalconClientId
+            - FalconSecret
+      - Label:
+          default: S3 Buckets.
+          Parameters:
+            - LogArchiveBucketName
+            - LambdaBucketName
     ParameterLabels:
+      LogArchiveBucketName:
+        default: Cloudtrail log bucket from Control Tower
       RoleName:
         default: IAM Role Name
       ExternalID:
-        default: External ID
+        default: External ID Enter 6 or more characters alphanumeric without white space
       CSAccountNumber:
-        default: AWS Account ID to Grant Permission. Do not modify
+        default: Crowdstrke AWS Account ID we are granting access to the role. Do not modify
       CSAssumingRoleName:
-        default: Assuming IAM Role Name.  Do not modify
+        default: Crowdstrike Role we are granting access to the role.  Do not modify
 Outputs:
   RoleARN:
     Description: The ARN of the role that can be assumed by the other account.
     Value: !GetAtt 'S3AccessiamRole.Arn'
 Parameters:
-  FalconDiscoverSecretsRole:
-    Description: The arn of the cross account IAM role to access secrets.
-    MinLength: '1'
-    Type: String
-    Default: arn:aws:iam::106808901653:role/FaLconDiscoverCredentialsRole
 
   RoleName:
     Description: The name of the cross account IAM role to be created.
     MinLength: '1'
     Type: String
-    Default: FalconDiscover19
+    Default: FalconDiscover1
 
   ExternalID:
-    Description: The External ID that will be required to assume the role.
-    MinLength: '1'
+    Description: String used in IAM role trust policy to designate who can assume the role we are creating.
+    MinLength: '6'
     Type: String
-    Default: qV851M2Q5p13UyY
+
 
   CSAccountNumber:
     AllowedPattern: '[0-9]+'
-    Description: The 12 digit AWS account number to grant access to.
+    Description: The 12 digit AWS account number to grant access to. Do not modify
     MaxLength: '12'
     MinLength: '12'
     Type: String
     Default: 292230061137
 
   CSAssumingRoleName:
-    Description: Name of the IAM role used within CrowdStrike to assume access to
+    Description: Name of the IAM role used within CrowdStrike to assume access to. Do not modify
       your account.
     Type: String
     Default: "CS-Prod-HG-CsCloudconnectaws"
@@ -60,31 +67,18 @@ Parameters:
   FalconClientId:
     Description: Falcon OAuth2 Client ID.
     Type: String
-    Default: '16b7412b5f4f4ec1a9dc6cbc54800787'
+
 
   FalconSecret:
     Description: Falcon Oath2 API secret.
     Type: String
-    Default: 'cfLzq7J358G9bp6oZHTgih1BtIQFln04Rjv2DPOs'
 
   LogArchiveBucketName:
     Type: String
     Description: Log Archive Bucket Name
-    Default: aws-controltower-logs-004881111746-eu-west-1
-
-  LocalAccount:
-    Type: String
-    Description: The local account number
-    Default: "106808901653
-"
-
 
   LambdaBucketName:
     Type: String
-    Default: ctstagingireland
-
-
-
 
 
 Resources:
@@ -92,16 +86,16 @@ Resources:
   launchLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: launchLambdaRole21
-
+      RoleName: CrowdstrikelaunchLambdaRole1
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-            Condition: {}
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
       Path: /
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSLambdaExecute
@@ -137,7 +131,6 @@ Resources:
     Properties:
       Environment:
         Variables:
-          FalconDiscoverSecretsRole: !Ref FalconDiscoverSecretsRole
           central_s3_bucket_account: !Ref AWS::AccountId
           cloudtrail_bucket_region: !Ref AWS::Region
           CSAccountNumber: !Ref CSAccountNumber
@@ -222,7 +215,7 @@ Resources:
   RegisterAcctLambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: CrowdstrikeRegisterAcctLambdaRole
+      RoleName: CrowdstrikeRegisterAcctLambdaRole1
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -244,6 +237,7 @@ Resources:
     Properties:
       FalconSecret: !Ref FalconSecret
       FalconClientId: !Ref FalconClientId
+      ExternalID: !Ref ExternalID
       ServiceToken: !GetAtt
         - RegisterAccountWithDiscover
         - Arn
@@ -255,7 +249,6 @@ Resources:
     Properties:
       Environment:
         Variables:
-          FalconDiscoverSecretsRole: !Ref FalconDiscoverSecretsRole
           central_s3_bucket_account: !Ref AWS::AccountId
           cloudtrail_bucket_region: !Ref AWS::Region
           iam_role_arn: !GetAtt "S3AccessiamRole.Arn"
