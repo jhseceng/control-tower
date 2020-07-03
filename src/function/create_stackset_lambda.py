@@ -6,7 +6,7 @@ import string, random
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-Falcon_Discover_Url = 'https://ctstagingireland.s3-eu-west-1.amazonaws.com/crowdstrike_role_creation_ss.yaml'
+Falcon_Discover_Url = 'https://ctstagingireland.s3-eu-west-1.amazonaws.com/ct_crowdstrike_stackset.yaml'
 
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
@@ -179,7 +179,6 @@ def lambda_handler(event, context):
         LambdaBucketName = os.environ['LambdaBucketName']
         CredentialsSecret = os.environ['CrowdstrikeCredentialsSecret']
 
-
         AccountId = get_master_id()
         cList = ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND']
         ExecRole = 'AWSControlTowerExecution'
@@ -235,12 +234,8 @@ def lambda_handler(event, context):
             keyDict['ParameterValue'] = LogArchiveAccount
             CRWD_Discover_paramList.append(dict(keyDict))
 
-            keyDict['ParameterKey'] = 'LocalAccount'
-            keyDict['ParameterValue'] = ""
-            CRWD_Discover_paramList.append(dict(keyDict))
-
             keyDict['ParameterKey'] = 'LambdaBucketName'
-            keyDict['ParameterValue'] = ""
+            keyDict['ParameterValue'] = LambdaBucketName
             CRWD_Discover_paramList.append(dict(keyDict))
 
             logger.info('CRWD_Discover ParamList:{}'.format(CRWD_Discover_paramList))
@@ -249,32 +244,35 @@ def lambda_handler(event, context):
             logger.info('ExecRole: {}'.format(ExecRole))
             logger.info('ExecRole: {}'.format(cList))
 
-
-
             CRWD_Discover_result = launch_crwd_discover(Falcon_Discover_Url, CRWD_Discover_paramList, AdminRoleARN,
                                                         ExecRole, cList)
             logger.info('CRWD-Discover Stackset: {}'.format(CRWD_Discover_result))
 
             if CRWD_Discover_result:
                 cfnresponse_send(event, context, SUCCESS, CRWD_Discover_result, "CustomResourcePhysicalID")
+                return
             else:
                 cfnresponse_send(event, context, FAILED, CRWD_Discover_result, "CustomResourcePhysicalID")
+                return
 
         elif event['RequestType'] in ['Update']:
             logger.info('Event = ' + event['RequestType'])
 
             cfnresponse_send(event, context, 'SUCCESS', response_data, "CustomResourcePhysicalID")
+            return
 
         elif event['RequestType'] in ['Delete']:
             logger.info('Event = ' + event['RequestType'])
             delete_stackset('CROWDSTRIKE-ROLES-CREATION')
             response_data["Status"] = "Success"
             cfnresponse_send(event, context, 'SUCCESS', response_data, "CustomResourcePhysicalID")
-
+            return
+        raise Exception
     except Exception as e:
         logger.error(e)
         response_data = {}
         response_data["Status"] = str(e)
         cfnresponse_send(event, context, 'FAILED', response_data, "CustomResourcePhysicalID")
+        return
 
 
