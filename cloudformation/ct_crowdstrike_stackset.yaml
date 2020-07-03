@@ -81,13 +81,6 @@ Parameters:
     Description: Log Archive Bucket Name
     Default: aws-controltower-logs-004881111746-eu-west-1
 
-
-  LocalAccount:
-    Type: String
-    Description: The local account number
-    Default: "106808901653"
-
-
   LambdaBucketName:
     Type: String
     Default: ctstagingireland
@@ -166,7 +159,7 @@ Resources:
           CSAssumingRoleName: !Ref CSAssumingRoleName
           FalconClientId: !Ref FalconClientId
           FalconSecret: !Ref FalconSecret
-          LocalAccount: !Ref LocalAccount
+          LocalAccount: !Ref AWS::AccountId
 
       Code:
         S3Bucket: !Ref LambdaBucketName
