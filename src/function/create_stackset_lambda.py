@@ -177,6 +177,7 @@ def lambda_handler(event, context):
         LogArchiveBucketName = os.environ['LogArchiveBucketName']
         LogArchiveAccount = os.environ['LogArchiveAccount']
         LambdaBucketName = os.environ['LambdaBucketName']
+        CredentialsSecret = os.environ['CrowdstrikeCredentialsSecret']
 
 
         AccountId = get_master_id()
@@ -192,7 +193,7 @@ def lambda_handler(event, context):
 
             # Parameters for CRWD-Discover stackset
             CRWD_Discover_paramList = []
-            secretList = json.loads(get_secret_value('CrowdstrikeCredentialsSecret'))
+            secretList = json.loads(get_secret_value(CredentialsSecret))
             keyDict = {}
 
             # LocalAccount:

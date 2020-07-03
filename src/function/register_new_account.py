@@ -59,20 +59,19 @@ def register_falcon_discover_account(payload, api_keys) -> bool:
     headers.update(auth_header)
 
     try:
-        http = urllib3.PoolManager()
-        response = http.request(cs_action, url, headers=headers, body=payload)
-        response_content = json.loads(response.data.decode('utf-8'))
+        response = requests.request(cs_action, url, headers=headers, data=payload)
+        response_content = json.loads(response.text)
         logger.info('Response to register = {}'.format(response_content))
 
         good_exit = 201 if cs_action == 'POST' else 200
-        if response.status == good_exit:
+        if response.status_code == good_exit:
             logger.info('Account Registered')
             return True
-        elif response.status == 409:
+        elif response.status_code == 409:
             logger.info('Account already registered - nothing to do')
             return True
         else:
-            error_code = response.status
+            error_code = response.status_code
             error_msg = response_content["errors"][0]["message"]
             logger.info('Account {} Registration Failed - Response {} {}'.format(error_code, error_msg))
             return
@@ -92,11 +91,7 @@ def get_auth_header(auth_token) -> str:
 
 
 def get_auth_token(api_keys):
-    # SecretList = json.loads(get_secret('FalconSecret'))
-    # FalconClientId = SecretList['FalconClientId']
-    # FalconSecret = SecretList['FalconSecret']
-    # logger.info('FalconClientId {}'.format(FalconClientId))
-    # logger.info('FalconSecret {}'.format(FalconSecret))
+
     FalconClientId = api_keys['FalconClientId']
     FalconSecret = api_keys['FalconSecret']
     url = "https://api.crowdstrike.com/oauth2/token"

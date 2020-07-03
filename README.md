@@ -4,7 +4,7 @@
 
 1) Place the contents of the 'cloudformation' and 'lambda' files into an S3 bucket with PUBLIC read only permissions.
 
-2) Download the crwd_manage_stacks_lambda.zip file.  Unzip the file and note the location of the stackset.  
+2) Download the create_stackset_lambda.zip file.  Unzip the file and note the location of the stackset.  
 Falcon_Discover_Url = https://ctstagingireland.s3-eu-west-1.amazonaws.com/crowdstrike_role_creation_ss.yaml  
 You may modify this entry to the URL of the file in your S3 bucket. 
 

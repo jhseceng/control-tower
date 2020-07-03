@@ -27,12 +27,11 @@ def lambda_handler(event, context):
             accId = newAccInfo['account']['accountId']
             accName = newAccInfo['account']['accountName']
             CFT = boto3.client('cloudformation')
-            ParameterOverrides = [
-                                     {
+            ParameterOverrides = [{
                                          'ParameterKey': 'LocalAccount',
                                          'ParameterValue': accId
-                                     }
-                                 ],
+                                }]
+
             for item in stackset_list:
                 try:
                     result = CFT.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName],

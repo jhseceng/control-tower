@@ -66,7 +66,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Description: Crowdstrike Credentials
-      Name: CrowdstrikeCredentialsSecret
+      Name: CrowdstrikeAPISecret
       SecretString:
         Fn::Join:
         - ''
@@ -204,7 +204,7 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Ref LambdaBucketName
-        S3Key: crwd_manage_stacks_lambda.zip
+        S3Key: create_stackset_lambda.zip
       Environment:
         Variables:
           FalconDiscoverSecretsRole: !GetAtt "FalconDiscoverCredentialsRole.Arn"
@@ -215,7 +215,8 @@ Resources:
           CSAccountNumber: !Ref CSAccountNumber
           CSAssumingRoleName: !Ref CSAssumingRoleName
           LambdaBucketName: !Ref LambdaBucketName
-      Handler: crwd_manage_stacks_lambda.lambda_handler
+          CrowdstrikeCredentialsSecret: !Ref CrowdstrikeCredentials
+      Handler: create_stackset_lambda.lambda_handler
       Runtime: python3.7
       MemorySize: 128
       Role: !GetAtt "launchLambdaRole.Arn"
