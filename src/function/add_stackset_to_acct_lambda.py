@@ -27,15 +27,11 @@ def lambda_handler(event, context):
             accId = newAccInfo['account']['accountId']
             accName = newAccInfo['account']['accountName']
             CFT = boto3.client('cloudformation')
-            ParameterOverrides = [{
-                                         'ParameterKey': 'LocalAccount',
-                                         'ParameterValue': accId
-                                }]
+            acct_dict = {'ParameterKey': 'LocalAccount', 'ParameterValue': accId}
 
             for item in stackset_list:
                 try:
-                    result = CFT.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName],
-                                                        ParameterOverrides=ParameterOverrides)
+                    CFT.create_stack_instances(StackSetName=item, Accounts=[accId], Regions=[regionName])
                     logger.info('Processed {} Sucessfully'.format(item))
 
                 except Exception as e:
