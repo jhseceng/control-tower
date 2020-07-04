@@ -1,12 +1,13 @@
 import boto3, json, time, os
 import logging
 from botocore.exceptions import ClientError
-from botocore.vendored import requests
+# from botocore.vendored import requests
 import string, random
+import requests
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-Falcon_Discover_Url = 'https://ctstagingireland.s3-eu-west-1.amazonaws.com/ct_crowdstrike_stackset.yaml'
+
 
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
@@ -86,13 +87,13 @@ def get_master_id():
         return False
 
 
-def launch_crwd_discover(templateUrl, paramList, AdminRoleARN, ExecRole, cList):
+def launch_crwd_discover(templateUrl, paramList, AdminRoleARN, ExecRole, cList, stacketsetName):
     ''' Launch CRWD Discover Stackset on the Master Account '''
     CFT = boto3.client('cloudformation')
     result = {}
     if len(paramList):
         try:
-            result = CFT.create_stack_set(StackSetName='CROWDSTRIKE-FALCON-ROLES', \
+            result = CFT.create_stack_set(StackSetName=stacketsetName, \
                                           Description='Roles for CRWD-Discover', \
                                           TemplateURL=templateUrl, \
                                           Parameters=paramList, \
@@ -155,7 +156,7 @@ def delete_stackset(stacksetName):
 
     except ClientError as e:
         if e.response['Error']['Code'] == 'StackSetNotFoundException':
-            logger.warn("StackSet {} does not exist".format(stacksetName))
+            logger.info("StackSet {} does not exist".format(stacksetName))
             return True
         else:
             logger.error("Unexpected error: %s" % e)
@@ -164,12 +165,10 @@ def delete_stackset(stacksetName):
 
 def lambda_handler(event, context):
     try:
-        # Env Variables
-        # LogArchiveAccount: !Ref LogArchiveAccount
-        # LogArchiveBucketName: !Ref LogArchiveBucketName
-        # LogArchiveBucketRegion: !Ref LogArchiveBucketRegion
+        STACKSETNAME = 'CrowdstrikeDiscover-IAM-ROLES'
 
         FalconDiscoverSecretsRole = os.environ['FalconDiscoverSecretsRole']
+        AwsRegion = os.environ['AwsRegion']
         RoleName = os.environ['RoleName']
         CSAccountNumber = os.environ['CSAccountNumber']
         CSAssumingRoleName = os.environ['CSAssumingRoleName']
@@ -178,6 +177,7 @@ def lambda_handler(event, context):
         LogArchiveAccount = os.environ['LogArchiveAccount']
         LambdaBucketName = os.environ['LambdaBucketName']
         CredentialsSecret = os.environ['CrowdstrikeCredentialsSecret']
+        CrowdstrikeTemplateUrl = 'https://'+LambdaBucketName+'.s3-'+AwsRegion+'.amazonaws.com/ct_crowdstrike_stackset.yaml'
 
         AccountId = get_master_id()
         cList = ['CAPABILITY_IAM', 'CAPABILITY_NAMED_IAM', 'CAPABILITY_AUTO_EXPAND']
@@ -201,7 +201,7 @@ def lambda_handler(event, context):
                 keyDict['ParameterKey'] = s
                 keyDict['ParameterValue'] = secretList[s]
                 CRWD_Discover_paramList.append(dict(keyDict))
-            ExternalID = get_random_alphanum_string()
+            ExternalID = get_random_alphanum_string(8)
             keyDict['ParameterKey'] = 'ExternalID'
             keyDict['ParameterValue'] = ExternalID
             CRWD_Discover_paramList.append(dict(keyDict))
@@ -240,12 +240,12 @@ def lambda_handler(event, context):
 
             logger.info('CRWD_Discover ParamList:{}'.format(CRWD_Discover_paramList))
             logger.info('AdminRoleARN: {}'.format(AdminRoleARN))
-            logger.info('Falcon_Discover_Url: {}'.format(Falcon_Discover_Url))
+            logger.info('CrowdstrikeTemplateUrl: {}'.format(CrowdstrikeTemplateUrl))
             logger.info('ExecRole: {}'.format(ExecRole))
             logger.info('ExecRole: {}'.format(cList))
 
-            CRWD_Discover_result = launch_crwd_discover(Falcon_Discover_Url, CRWD_Discover_paramList, AdminRoleARN,
-                                                        ExecRole, cList)
+            CRWD_Discover_result = launch_crwd_discover(CrowdstrikeTemplateUrl, CRWD_Discover_paramList, AdminRoleARN,
+                                                        ExecRole, cList, STACKSETNAME)
             logger.info('CRWD-Discover Stackset: {}'.format(CRWD_Discover_result))
 
             if CRWD_Discover_result:
@@ -263,7 +263,7 @@ def lambda_handler(event, context):
 
         elif event['RequestType'] in ['Delete']:
             logger.info('Event = ' + event['RequestType'])
-            delete_stackset('CROWDSTRIKE-ROLES-CREATION')
+            delete_stackset(STACKSETNAME)
             response_data["Status"] = "Success"
             cfnresponse_send(event, context, 'SUCCESS', response_data, "CustomResourcePhysicalID")
             return

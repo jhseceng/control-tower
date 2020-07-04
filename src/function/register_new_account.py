@@ -13,7 +13,6 @@ Falcon_Discover_Url = 'https://ctstagingireland.s3-eu-west-1.amazonaws.com/crowd
 SUCCESS = "SUCCESS"
 FAILED = "FAILED"
 
-FalconDiscoverSecretsRoleArn = os.environ['FalconDiscoverSecretsRole']
 cloudtrail_bucket_owner_id = os.environ['central_s3_bucket_account']
 cloudtrail_bucket_region = os.environ['cloudtrail_bucket_region']
 iam_role_arn = os.environ['iam_role_arn']
@@ -21,31 +20,8 @@ CSAccountNumber = os.environ['CSAccountNumber']
 CSAssumingRoleName = os.environ['CSAssumingRoleName']
 LocalAccount = os.environ['LocalAccount']
 
-
-def get_sm_client():
-    sts_connection = boto3.client('sts')
-    acct_creds = sts_connection.assume_role(
-        RoleArn=FalconDiscoverSecretsRoleArn,
-        RoleSessionName="cross_acct_lambda"
-    )
-
-    ACCESS_KEY = acct_creds['Credentials']['AccessKeyId']
-    SECRET_KEY = acct_creds['Credentials']['SecretAccessKey']
-    SESSION_TOKEN = acct_creds['Credentials']['SessionToken']
-
-    # create secretsmanager client
-    session = boto3.session.Session()
-    sm_client = session.client(
-        'secretsmanager',
-        aws_access_key_id=ACCESS_KEY,
-        aws_secret_access_key=SECRET_KEY,
-        aws_session_token=SESSION_TOKEN,
-    )
-    return sm_client
-
-
-def register_falcon_discover_account(payload, api_keys) -> bool:
-    cs_action = 'POST'
+def register_falcon_discover_account(payload, api_keys,api_method) -> bool:
+    cs_action = api_method
     url = "https://api.crowdstrike.com/cloud-connect-aws/entities/accounts/v1?mode=manual"
     auth_token = get_auth_token(api_keys)
     if auth_token:
@@ -109,17 +85,17 @@ def get_auth_token(api_keys):
     return
 
 
-def format_notification_message(rate_limit_reqs=0, rate_limit_time=0):
+def format_notification_message(external_id, rate_limit_reqs=0, rate_limit_time=0):
     data = {
         "resources": [
             {
                 "cloudtrail_bucket_owner_id": cloudtrail_bucket_owner_id,
                 "cloudtrail_bucket_region": cloudtrail_bucket_region,
-                "external_id": get_random_alphanum_string(),
+                "external_id": external_id,
                 "iam_role_arn": iam_role_arn,
                 "id": LocalAccount,
-                # "rate_limit_reqs": "<integer>",
-                # "rate_limit_time": "<long>"
+                "rate_limit_reqs": rate_limit_reqs,
+                "rate_limit_time": rate_limit_time
             }
         ]
     }
@@ -158,7 +134,7 @@ def cfnresponse_send(event, context, responseStatus, responseData, physicalResou
         print("send(..) failed executing requests.put(..): " + str(e))
 
 
-def get_random_alphanum_string(stringLength=15):
+def get_random_alphanum_string(stringLength=8):
     lettersAndDigits = string.ascii_letters + string.digits
     return ''.join((random.choice(lettersAndDigits) for i in range(stringLength)))
 
@@ -166,14 +142,15 @@ def get_random_alphanum_string(stringLength=15):
 def lambda_handler(event, context):
     try:
         response_data = {}
+        logger.info('Event = {}'.format(event))
         if event['RequestType'] in ['Create']:
-            logger.info('Event = {}'.format(event))
             api_keys = event['ResourceProperties']
-
+            external_id = event['ResourceProperties']['ExternalID']
             # Format post message
-            api_message = format_notification_message()
+            API_METHOD = 'POST'
+            api_message = format_notification_message(external_id)
             # Register account
-            register_result = register_falcon_discover_account(api_message, api_keys)
+            register_result = register_falcon_discover_account(api_message, api_keys, API_METHOD)
             logger.info('Account registration result: {}'.format(register_result))
             if register_result:
                 cfnresponse_send(event, context, SUCCESS, register_result, "CustomResourcePhysicalID")
@@ -182,8 +159,22 @@ def lambda_handler(event, context):
 
         elif event['RequestType'] in ['Update']:
             logger.info('Event = ' + event['RequestType'])
+            api_keys = event['ResourceProperties']
+            external_id = event['ResourceProperties']['ExternalID']
+            # Format post message
+            API_METHOD = 'PATCH'
+            api_message = format_notification_message(external_id)
+            # Register account
+            register_result = register_falcon_discover_account(api_message, api_keys, API_METHOD)
+            logger.info('Account registration result: {}'.format(register_result))
+            if register_result:
+                cfnresponse_send(event, context, SUCCESS, "CustomResourcePhysicalID")
+            else:
+                cfnresponse_send(event, context, FAILED, "CustomResourcePhysicalID")
 
-            cfnresponse_send(event, context, 'SUCCESS', response_data, "CustomResourcePhysicalID")
+            logger.info('Event = ' + event['RequestType'])
+
+            cfnresponse_send(event, context, 'SUCCESS', "CustomResourcePhysicalID")
 
         elif event['RequestType'] in ['Delete']:
             logger.info('Event = ' + event['RequestType'])
