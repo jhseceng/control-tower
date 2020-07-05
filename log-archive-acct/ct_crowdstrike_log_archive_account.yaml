@@ -5,36 +5,41 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: Cross Account IAM Role.
+          default: Crowdstrike Account Parameters. (Do Not Modify)
         Parameters:
-          - RoleName
-          - ExternalID
           - CSAccountNumber
           - CSAssumingRoleName
       - Label:
+          default: Crowdstrike Role Parameters.
+        Parameters:
+          - RoleName
+          - ExternalID
+      - Label:
           default: Crowdstrike Falcom API keys.
-          Parameters:
-            - FalconClientId
-            - FalconSecret
+        Parameters:
+           - FalconClientId
+           - FalconSecret
       - Label:
           default: S3 Buckets.
-          Parameters:
-            - LogArchiveBucketName
-            - LambdaBucketName
+        Parameters:
+          - LogArchiveBucketName
+          - LambdaBucketName
     ParameterLabels:
       LogArchiveBucketName:
-        default: Cloudtrail log bucket from Control Tower
+        default: Cloudtrail log bucket created by Control Tower
       RoleName:
-        default: IAM Role Name
+        default: Default IAM Role (Can be modified)
       ExternalID:
         default: External ID Enter 6 or more characters alphanumeric without white space
       CSAccountNumber:
         default: Crowdstrke AWS Account ID we are granting access to the role. Do not modify
       CSAssumingRoleName:
         default: Crowdstrike Role we are granting access to the role.  Do not modify
+      LambdaBucketName:
+        Name of the Lambda staging bucket created by the script
 Outputs:
   RoleARN:
-    Description: The ARN of the role that can be assumed by the other account.
+    Description: The ARN of the role that can be assumed by Crowdstrike Discover.
     Value: !GetAtt 'S3AccessiamRole.Arn'
 Parameters:
 
@@ -42,7 +47,7 @@ Parameters:
     Description: The name of the cross account IAM role to be created.
     MinLength: '1'
     Type: String
-    Default: FalconDiscover1
+    Default: FalconDiscover
 
   ExternalID:
     Description: String used in IAM role trust policy to designate who can assume the role we are creating.
