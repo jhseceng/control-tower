@@ -3,7 +3,7 @@
 # Usage python3 create_staging_bucket.py
 # -b <S3 Bucket Name> Optional will default to 'crowdstrike-staging-<account>-account-xyz'
 # -r region
-# -a account where the bucket will be created, choices=['control-tower', 'log-archive'],
+# -a account where the bucket will be created, choices=['master-acct', 'log-archive-acct'],
 #
 
 import os
@@ -16,6 +16,8 @@ import random
 import time
 from logging.handlers import RotatingFileHandler
 from botocore.exceptions import ClientError
+
+PUBLIC_FILES_LIST = ['layer.zip', 'ct_crowdstrike_stackset.yaml']
 
 
 
@@ -99,7 +101,6 @@ def upload_file(file_name, bucket, object_name=None):
     s3_client = boto3.client('s3')
 
     try:
-        start_time = time.time()
         print('Uploading file {}:'.format(file_name))
         content = open(file_name, 'rb')
         s3_client.put_object(
@@ -107,23 +108,29 @@ def upload_file(file_name, bucket, object_name=None):
             Key=object_name,
             Body=content
         )
-        print("Successfully finished uploading file to s3 bucket. Time {}s".format(
-            time.time() - start_time))
+        if object_name in PUBLIC_FILES_LIST:
+            print('Setting file {} ACL to public-read'.format(object_name))
+            put_acl_response = s3_client.put_object_acl(ACL='public-read', Bucket=bucket, Key=object_name)
     except Exception as e:
         print('File Upload error {}'.format(e))
         sys.exit(1)
     return True
 
-
+def object_acl_public(object):
+    s3_resource = boto3.resource('s3')
+    object_acl = s3_resource.ObjectAcl('bucket_name', 'object_key')
+    response = object_acl.put(ACL='public-read')
 
 def main():
-    if account == 'log-archive':
-        account_prefix = 'log-archive'
+    if account == 'log-archive-acct':
+        account_prefix = 'log-archive-acct'
     else:
-        account_prefix = 'control-tower'
+        account_prefix = 'master-acct'
     if not bucket_exists(s3bucket,region):
         create_bucket(s3bucket, region)
     upload_dir(account_prefix, s3bucket)
+    print('\n\n#### Created S3 Bucket {}'.format(s3bucket))
+    print('### Use this bucket name as the Lambda bucket name in your template')
 
 
 
@@ -131,8 +138,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get Params to create lambda bucket')
     parser.add_argument('-r', '--aws_region', help='AWS Region', required=True)
     parser.add_argument('-b', '--s3bucket', help='<S3 Bucket Name> Optional will default to "crowdstrike-staging-<account>-account-xyz" ')
-    parser.add_argument('-a', '--account', choices=['control-tower', 'log-archive'],
-                        required=True, help="Account where the bucket will be created, choices=['control-tower', 'log-archive'],")
+    parser.add_argument('-a', '--account', choices=['master-acct', 'log-archive-acct'],
+                        required=True, help="Account where the bucket will be created, choices=['master-acct', 'log-archive-acct'],")
 
     args = parser.parse_args()
 
