@@ -2,12 +2,11 @@
 
 ## Instructions
 
-1) Place the contents of the 'cloudformation' and 'lambda' files into an S3 bucket and grant the objects PUBLIC read only permissions.
-
-2) Goto the Falcon Console and generate new OAuth2 ClientID and Client Secret API keys
-
-3) Open Cloudformation in the master account of your control tower environment.  Load the template file 'ct_crowdstrike_master_account.yaml'
-
-3) Open Cloudformation in the log-archive account of your control tower environment.  Load the template file 'ct_crowdstrike_log_archive_account.yaml'
+Setup will consist of the following tasks.
+1)	Download the code from the GitHub repository to a local machine that has access to the control tower master account and the control tower log archive account. 
+2)	Create an S3 staging bucket in the log-archive account 
+3)	Load the CloudFormation template in the log-archive account.
+4)	Create an S3 staging bucket in the master account.
+5)	Load the CloudFormation template in the master account.
 
 See the documentation folder for more information
