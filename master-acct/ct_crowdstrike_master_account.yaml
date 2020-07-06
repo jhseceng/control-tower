@@ -5,27 +5,27 @@ Parameters:
     Description: Your Falcon Oauth2 API Key.
     NoEcho: 'true'
     Type: String
-    Default: "16b7412b5f4f4ec1a9dc6cbc54800787"
+
   FalconSecret:
     Description: Your Falcon Oauth2 API Secret.
     NoEcho: 'true'
     Type: String
-    Default: "cfLzq7J358G9bp6oZHTgih1BtIQFln04Rjv2DPOs"
+
   ExternalId:
     Description: ExternalID Used for authenticating assume role requests.
     NoEcho: 'true'
     Type: String
-    Default: "PZi2wi5MB5pFAEy"
+
   CSAccountNumber:
     Default: '292230061137'
     Description: Crowdstrike Account ID.
     Type: String
   LambdaBucketName:
     Type: String
-    Description: Name of the S3 bucket that contains lambda functions
-    Default: "ctstagingireland"
+    Description: Name of the S3 bucket that contains your lambda functions
+
   RoleName:
-    Description: IAM Role Name
+    Description: IAM Role Name (May be modified)
     Type: String
     Default: CrowdStrikeFalcon
   CSAssumingRoleName:
@@ -35,32 +35,41 @@ Parameters:
   LogArchiveAccount:
     Type: String
     Description: AccountId of Log Archive Bucket
-    Default: "004881111746"
+
   LogArchiveBucketName:
     Type: String
     Description: Log Archive Bucket Name
-    Default: "aws-controltower-logs-004881111746-eu-west-1"
+
   LogArchiveBucketRegion:
     Type: String
     Description: Log Archive Bucket Region
-    Default: "eu-west-1"
+
 
 
 Metadata:
-  AWS::CloudFormation::Interface: 
-    ParameterGroups: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
       - Label:
-          default: "Crowdstrike Credentials"
-        Parameters: 
-          - FalconClientId
-          - FalconSecret
-          - ExternalId
+          default: Crowdstrike Account Parameters. (Do Not Modify)
+        Parameters:
           - CSAccountNumber
+          - CSAssumingRoleName
       - Label:
-          default: "Log Archive Account"
+          default: Crowdstrike Role Parameters.
+        Parameters:
+          - RoleName
+          - ExternalId
+      - Label:
+          default: Crowdstrike Falcom API keys.
+        Parameters:
+           - FalconClientId
+           - FalconSecret
+      - Label:
+          default: Log Archive Account Details
         Parameters:
           - LogArchiveAccount
           - LogArchiveBucketName
+          - LogArchiveBucketRegion
 Resources:
   CrowdstrikeCredentials:
     Type: AWS::SecretsManager::Secret
@@ -205,8 +214,11 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaBucketName
         S3Key: create_stackset_lambda.zip
+      Layers:
+        - !Ref lambdaLayer
       Environment:
         Variables:
+          AwsRegion: !Ref AWS::Region
           FalconDiscoverSecretsRole: !GetAtt "FalconDiscoverCredentialsRole.Arn"
           LogArchiveAccount: !Ref LogArchiveAccount
           LogArchiveBucketName: !Ref LogArchiveBucketName
@@ -228,9 +240,21 @@ Resources:
       - "launchLambdaRole"
       - permissionForEventsToInvokeLambda
     Properties:
+      FalconSecret: !Ref FalconSecret
+      FalconClientId: !Ref FalconClientId
       ServiceToken: !GetAtt
         - LambdaToLaunchStackSet
         - Arn
+  lambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.7
+      Content:
+        S3Bucket: !Ref LambdaBucketName
+        S3Key: layer.zip
+      Description: Layer for requests package
+      LayerName: requests-package
 
   CaptureControlTowerLifeCycleEvents:
     DependsOn:
@@ -294,12 +318,14 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaBucketName
         S3Key: crowdstrikeAccts_lambda.zip
+      Layers:
+        - !Ref lambdaLayer
       Environment:
         Variables:
           RoleName: !Ref RoleName
           CSAccountNumber: !Ref CSAccountNumber
           CSAssumingRoleName: !Ref CSAssumingRoleName
-      Handler: crowdstikeAccts.lambda_handler
+      Handler: crowdstrikeAccts_lambda.lambda_handler
       MemorySize: 128
       Role: !GetAtt "LambdaRoleToCaptureEvents.Arn"
       Runtime: python3.7

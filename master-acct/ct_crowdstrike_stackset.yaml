@@ -25,11 +25,20 @@ Outputs:
     Description: The ARN of the role that can be assumed by the other account.
     Value: !GetAtt 'iamRole.Arn'
 Parameters:
-  FalconDiscoverSecretsRole:
-    Description: The arn of the cross account IAM role to access secrets.
+  FalconClientId:
+    Description: Falcon OAuth2 Client ID.
+    Type: String
+    NoEcho: 'true'
+
+  FalconSecret:
+    Description: Falcon Oath2 API secret.
+    Type: String
+    NoEcho: 'true'
+
+  ExternalID:
+    Description: The External ID that will be required to assume the role.
     MinLength: '1'
     Type: String
-    Default: arn:aws:iam::106808901653:role/FaLconDiscoverCredentialsRole
 
   RoleName:
     Description: The name of the cross account IAM role to be created.
@@ -37,11 +46,16 @@ Parameters:
     Type: String
     Default: testapi1
 
-  ExternalID:
-    Description: The External ID that will be required to assume the role.
+  FalconDiscoverSecretsRole:
+    Description: The arn of the cross account IAM role to access secrets.
     MinLength: '1'
     Type: String
-    Default: qV851M2Q5p13UyY
+    Default: arn:aws:iam::106808901653:role/FaLconDiscoverCredentialsRole
+
+  LogArchiveBucketRegion:
+    Type: String
+    Description: Log archive bucket region
+    Default: eu-west-1
 
   CSAccountNumber:
     AllowedPattern: '[0-9]+'
@@ -56,27 +70,6 @@ Parameters:
       your account.
     Type: String
     Default: "CS-Prod-HG-CsCloudconnectaws"
-  FalconClientId:
-    Description: Falcon OAuth2 Client ID.
-    Type: String
-    NoEcho: 'true'
-    Default: '16b7412b5f4f4ec1a9dc6cbc54800787'
-
-  FalconSecret:
-    Description: Falcon Oath2 API secret.
-    Type: String
-    NoEcho: 'true'
-    Default: 'cfLzq7J358G9bp6oZHTgih1BtIQFln04Rjv2DPOs'
-
-  LogArchiveAccount:
-    Type: String
-    Description: AccountId of Log Archive Bucket
-    Default: "004881111746"
-
-  LogArchiveBucketRegion:
-    Type: String
-    Description: Log archive bucket region
-    Default: eu-west-1
 
   LogArchiveBucketName:
     Type: String
@@ -86,6 +79,10 @@ Parameters:
   LambdaBucketName:
     Type: String
     Default: ctstagingireland
+  LogArchiveAccount:
+    Type: String
+    Description: AccountId of Log Archive Bucket
+    Default: "004881111746"
 
 Resources:
   iamRole:
@@ -153,16 +150,12 @@ Resources:
     Properties:
       Environment:
         Variables:
-          FalconDiscoverSecretsRole: !Ref FalconDiscoverSecretsRole
           central_s3_bucket_account: !Ref LogArchiveAccount
           cloudtrail_bucket_region: !Ref LogArchiveBucketRegion
           iam_role_arn: !GetAtt "iamRole.Arn"
           CSAccountNumber: !Ref CSAccountNumber
           CSAssumingRoleName: !Ref CSAssumingRoleName
-          FalconClientId: !Ref FalconClientId
-          FalconSecret: !Ref FalconSecret
           LocalAccount: !Ref AWS::AccountId
-
       Code:
         S3Bucket: !Ref LambdaBucketName
         S3Key: register_new_account.zip
@@ -182,6 +175,7 @@ Resources:
     Properties:
       FalconSecret: !Ref FalconSecret
       FalconClientId: !Ref FalconClientId
+      ExternalID: !Ref ExternalID
       ServiceToken: !GetAtt
         - manageInstanceFalconAPI
         - Arn
