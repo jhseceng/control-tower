@@ -216,6 +216,30 @@ Resources:
         - !Ref 'S3AccessiamRole'
     DependsOn:
       - S3AccessiamRole
+  iamPolicyDescribeAccess:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: DescribeAPICalls
+      PolicyDocument:
+        Statement:
+          - Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeImages
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVolumes
+              - ec2:DescribeVpcs
+              - ec2:DescribeRegions
+              - ec2:DescribeSubnets
+              - ec2:DescribeNetworkAcls
+              - ec2:DescribeSecurityGroups
+              - iam:ListAccountAliases
+            Effect: Allow
+            Resource: '*'
+            Sid: ''
+        Version: '2012-10-17'
+      Roles:
+        - !Ref 'S3AccessiamRole'
+    DependsOn: S3AccessiamRole
 
   RegisterAcctLambdaRole:
     Type: AWS::IAM::Role
