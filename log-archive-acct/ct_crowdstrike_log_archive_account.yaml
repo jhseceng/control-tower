@@ -72,11 +72,13 @@ Parameters:
   FalconClientId:
     Description: Falcon OAuth2 Client ID.
     Type: String
+    NoEcho: 'true'
 
 
   FalconSecret:
     Description: Falcon Oath2 API secret.
     Type: String
+    NoEcho: 'true'
 
   LogArchiveBucketName:
     Type: String
